@@ -124,7 +124,7 @@ jobs:
           INSTANCE_IP: ${{ needs.terraform-apply-dev.outputs.instance_ip }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }} 
-          target: "http://${{ env.INSTANCE_IP }}"
+          target: "http://${{ env.INSTANCE_IP }}:3000"
           cmd_options: |
             chmod a+rwx '/zap/wrk/zap.yaml'  
           allow_issue_writing: false  
