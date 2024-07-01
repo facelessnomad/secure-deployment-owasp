@@ -1,0 +1,5 @@
+project_id   = "developing-stuff"
+region       = "us-east4"
+app_name     = "owasp-juice-shop-app"
+machine_type = "e2-medium"
+zone         = "us-east4-c"

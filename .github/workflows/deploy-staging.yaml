@@ -1,0 +1,172 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  terraform-plan-dev:
+    name: Terraform Plan Development
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: GCP Auth
+        id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: 'Use gcloud CLI'
+        run: 'gcloud info'
+
+      - name: Terraform Init
+        run: |
+          cd deployment
+          terraform init 
+        
+      - name: Terraform Format
+        run: | 
+          cd deployment
+          terraform fmt -recursive
+
+      - name: Terraform Plan
+        run: |
+          cd deployment
+          terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+          terraform plan -var-file=prod.tfvars -out=tfplan-dev
+          echo "{planfile}={tfplan-dev}" >> $GITHUB_OUTPUT
+      
+      - name: Upload tfplan-dev Artifact
+        # if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-dev
+          path: deployment/tfplan-dev
+          retention-days: 2
+
+
+  terraform-apply-dev:
+    name: Terraform Apply Development
+    runs-on: ubuntu-latest
+    # if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    outputs:
+      instance_ip: ${{ steps.get_instance_ip.outputs.juice_ip }}
+    needs: terraform-plan-dev
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.8.5  # Ensure the same version as in terraform-plan
+
+    - name: GCP Auth
+      id: 'auth'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v2'
+
+    - name: 'Use gcloud CLI'
+      run: 'gcloud info'
+
+    - name: Terraform Init
+      run: |
+        cd deployment
+        terraform init 
+        
+    - name: Download tfplan-dev artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: tfplan-dev
+        path: deployment
+
+    - name: Terraform Apply Dev
+      env:
+        DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      run: |
+        cd deployment
+        terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        terraform apply -auto-approve tfplan-dev
+        echo "{planfile}={tfplan-dev}" >> $GITHUB_OUTPUT
+
+    - name: Get Instance IP
+      id: get_instance_ip
+      run: |
+        cd deployment
+        echo "juice_ip=$(terraform output -raw juice_shop_instance_ip)" >> $GITHUB_OUTPUT
+
+  zap-scan:
+    name: "ZAP Scan Baseline"
+    runs-on: ubuntu-latest
+    needs: terraform-apply-dev
+    continue-on-error: true
+    steps:
+      - name: ZAP Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        env: 
+          INSTANCE_IP: ${{ needs.terraform-apply-dev.outputs.instance_ip }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} 
+          target: "http://${{ env.INSTANCE_IP }}"
+          cmd_options: |
+            chmod a+rwx '/zap/wrk/zap.yaml'  
+          allow_issue_writing: false  
+
+      - name: Upload Scan Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap_report.html
+          path: .
+          retention-days: 1
+        
+  # terraform-destroy-dev:
+  #   name: "Terraform Destroy Development"
+  #   runs-on: ubuntu-latest
+  #   needs: zap-scan
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: 1.8.5  # Ensure the same version as in terraform-plan
+
+  #     - name: GCP Auth
+  #       id: 'auth'
+  #       uses: 'google-github-actions/auth@v2'
+  #       with:
+  #         credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+  #     - name: 'Set up Cloud SDK'
+  #       uses: 'google-github-actions/setup-gcloud@v2'
+
+  #     - name: 'Use gcloud CLI'
+  #       run: 'gcloud info'
+
+  #     - name: Terraform Init
+  #       run: |
+  #         cd deployment
+  #         terraform init
+
+  #     - name: Terraform Destroy Development
+  #       run: |
+  #         cd deployment
+  #         terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+  #         terraform destroy -auto-approve -var-file="prod.tfvars"
