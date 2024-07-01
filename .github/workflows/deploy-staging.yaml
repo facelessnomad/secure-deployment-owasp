@@ -45,7 +45,7 @@ jobs:
         run: |
           cd deployment
           terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-          terraform plan -var-file=prod.tfvars -out=tfplan-dev
+          terraform plan -var-file=terraform.tfvars -out=tfplan-dev
           echo "{planfile}={tfplan-dev}" >> $GITHUB_OUTPUT
       
       - name: Upload tfplan-dev Artifact
@@ -169,4 +169,4 @@ jobs:
   #       run: |
   #         cd deployment
   #         terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-  #         terraform destroy -auto-approve -var-file="prod.tfvars"
+  #         terraform destroy -auto-approve -var-file="terraform.tfvars"
