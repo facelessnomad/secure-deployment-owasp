@@ -119,13 +119,13 @@ jobs:
   zap-scan:
     name: "ZAP Scan Baseline"
     runs-on: ubuntu-latest
-    needs: terraform-apply-dev
+    needs: terraform-apply-staging
     continue-on-error: true
     steps:
       - name: ZAP Scan
         uses: zaproxy/action-baseline@v0.12.0
         env: 
-          INSTANCE_IP: ${{ needs.terraform-apply-dev.outputs.instance_ip }}
+          INSTANCE_IP: ${{ needs.terraform-apply-staging.outputs.instance_ip }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }} 
           target: "http://${{ env.INSTANCE_IP }}:3000"
