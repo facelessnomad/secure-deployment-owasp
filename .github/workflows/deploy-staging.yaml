@@ -51,13 +51,13 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'staging' }}
-          terraform plan -var-file=terraform.tfvars -out=$TF_PLAN_FILE
+          terraform plan -var-file=terraform.tfvars -out=${{ env.TF_PLAN_FILE }}
       
       # Docs: https://github.com/actions/upload-artifact
       - name: Upload tfplan Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: $TF_PLAN_FILE
+          name: ${{ env.TF_PLAN_FILE }}
           path: deployment
           retention-days: 1
 
@@ -65,16 +65,16 @@ jobs:
   terraform-apply-staging:
     name: Terraform Apply staging
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: deployment
+    # defaults:
+    #   run:
+    #     working-directory: deployment
     outputs:
       instance_ip: ${{ steps.get_instance_ip.outputs.juice_ip }}
     needs: terraform-plan-staging
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    # - name: Checkout repository
+    #   uses: actions/checkout@v4
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
@@ -99,13 +99,13 @@ jobs:
     - name: Download tfplan artifact
       uses: actions/download-artifact@v4
       with:
-        name: $TF_PLAN_FILE
+        name: ${{ env.TF_PLAN_FILE }}
         path: deployment
 
     - name: Terraform Apply Staging
       run: |
         terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'staging' }}
-        terraform apply -auto-approve $TF_PLAN_FILE
+        terraform apply -auto-approve ${{ env.TF_PLAN_FILE }}
 
     - name: Get Instance IP
       id: get_instance_ip
