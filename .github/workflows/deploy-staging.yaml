@@ -65,16 +65,16 @@ jobs:
   terraform-apply-staging:
     name: Terraform Apply staging
     runs-on: ubuntu-latest
-    # defaults:
-    #   run:
-    #     working-directory: deployment
+    defaults:
+      run:
+        working-directory: deployment
     outputs:
       instance_ip: ${{ steps.get_instance_ip.outputs.juice_ip }}
     needs: terraform-plan-staging
 
     steps:
-    # - name: Checkout repository
-    #   uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
