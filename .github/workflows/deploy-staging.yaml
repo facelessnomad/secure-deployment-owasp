@@ -65,6 +65,9 @@ jobs:
   terraform-apply-staging:
     name: Terraform Apply staging
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deployment
     outputs:
       instance_ip: ${{ steps.get_instance_ip.outputs.juice_ip }}
     needs: terraform-plan-staging
@@ -91,9 +94,7 @@ jobs:
       run: 'gcloud info'
 
     - name: Terraform Init
-      run: |
-        cd deployment
-        terraform init 
+      run: terraform init 
         
     - name: Download tfplan artifact
       uses: actions/download-artifact@v4
@@ -105,16 +106,12 @@ jobs:
       env:
         DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
       run: |
-        cd deployment
         terraform workspace select -or-create=true ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
         terraform apply -auto-approve $TF_PLAN_FILE
-        echo "{planfile}={$TF_PLAN_FILE}" >> $GITHUB_OUTPUT
 
     - name: Get Instance IP
       id: get_instance_ip
-      run: |
-        cd deployment
-        echo "juice_ip=$(terraform output -raw juice_shop_instance_ip)" >> $GITHUB_OUTPUT
+      run: echo "juice_ip=$(terraform output -raw juice_shop_instance_ip)" >> $GITHUB_OUTPUT
 
   zap-scan:
     name: "ZAP Scan Baseline"
