@@ -41,12 +41,10 @@ jobs:
         run: 'gcloud info'
 
       - name: Terraform Init
-        run: |
-          terraform init 
+        run: terraform init 
         
       - name: Terraform Format
-        run: | 
-          terraform fmt -recursive
+        run: terraform fmt -recursive
 
       - name: Terraform Plan
         run: |
@@ -139,8 +137,11 @@ jobs:
     name: "Terraform Destroy Development"
     runs-on: ubuntu-latest
     needs: zap-scan
+    defaults:
+      run:
+        working-directory: deployment
     steps:
-    
+
       - name: Checkout code
         uses: actions/checkout@v4
 
